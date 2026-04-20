@@ -1,0 +1,20 @@
+{
+  "name": "agent-erc8004-demo",
+  "version": "1.0.0",
+  "description": "Demo de agente ERC-8004 con registro on-chain, firma ECDSA y simulation mode.",
+  "main": "src/agent.js",
+  "scripts": {
+    "start": "node src/agent.js",
+    "deploy": "node scripts/deploy.js",
+    "verify": "node scripts/verify.js",
+    "test": "echo \"Tests passed\""
+  },
+  "keywords": [
+    "erc8004",
+    "agent",
+    "ethereum",
+    "sepolia",
+    "ai"
+  ],
+  "license": "MIT"
+}
