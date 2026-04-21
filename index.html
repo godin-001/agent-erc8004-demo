@@ -5,102 +5,164 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ERC-8004 Agent Demo</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      .glass { backdrop-filter: blur(16px); background: rgba(15, 23, 42, 0.68); }
+      .glow { box-shadow: 0 0 0 1px rgba(34,211,238,.15), 0 18px 60px rgba(34,211,238,.08); }
+    </style>
   </head>
-  <body class="bg-slate-950 text-white min-h-screen">
-    <div class="max-w-6xl mx-auto px-6 py-12">
-      <header class="mb-12">
-        <div class="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-1 text-sm text-cyan-200">ERC-8004 × AI Agents</div>
-        <h1 class="mt-6 text-4xl md:text-6xl font-bold leading-tight">Agentes con identidad on-chain, trazabilidad y firma verificable</h1>
-        <p class="mt-6 max-w-3xl text-lg text-slate-300">Una demo visual de cómo un agente puede registrarse, tomar decisiones y firmarlas usando el modelo mental de ERC-8004.</p>
-        <div class="mt-8 flex flex-wrap gap-4">
-          <a href="https://github.com/godin-001/agent-erc8004-demo" class="rounded-xl bg-cyan-400 px-5 py-3 font-semibold text-slate-950">Ver repo</a>
-          <button id="runDemo" class="rounded-xl border border-slate-700 px-5 py-3 font-semibold">Simular flujo</button>
-        </div>
-      </header>
+  <body class="min-h-screen bg-slate-950 text-white">
+    <div class="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.16),transparent_30%),radial-gradient(circle_at_80%_30%,rgba(168,85,247,0.14),transparent_28%),linear-gradient(to_bottom,#020617,#0f172a)]"></div>
 
-      <section class="grid gap-6 md:grid-cols-3 mb-12">
-        <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-          <h2 class="text-xl font-semibold">1. Identidad</h2>
-          <p class="mt-3 text-slate-300">Cada agente genera un wallet propio y puede registrarlo como identidad verificable.</p>
+    <main class="mx-auto max-w-7xl px-6 py-10 md:py-16">
+      <section class="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
+        <div>
+          <div class="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-1 text-sm text-cyan-200">ERC-8004 × AI Agents × Onchain Identity</div>
+          <h1 class="mt-6 text-5xl font-bold leading-tight md:text-7xl">Agentes verificables, firmables y composables</h1>
+          <p class="mt-6 max-w-2xl text-lg text-slate-300 md:text-xl">Esta landing ya no vive de puro mock. Consume datos reales generados por el flujo del agente y muestra cómo un agente puede tener identidad, decisión y prueba verificable usando el modelo mental de ERC-8004.</p>
+
+          <div class="mt-8 flex flex-wrap gap-4">
+            <button id="runDemo" class="rounded-2xl bg-cyan-400 px-6 py-3 font-semibold text-slate-950 transition hover:bg-cyan-300">Correr demo real</button>
+            <a href="/api/demo" target="_blank" class="rounded-2xl border border-slate-700 px-6 py-3 font-semibold text-slate-100">Ver JSON real</a>
+            <a href="https://github.com/godin-001/agent-erc8004-demo" target="_blank" class="rounded-2xl border border-slate-700 px-6 py-3 font-semibold text-slate-100">Ver GitHub</a>
+          </div>
+
+          <div class="mt-10 grid gap-4 sm:grid-cols-3">
+            <div class="glass glow rounded-2xl p-4">
+              <div class="text-sm text-slate-400">Identity</div>
+              <div class="mt-2 text-2xl font-semibold" id="identityValue">Waiting...</div>
+            </div>
+            <div class="glass glow rounded-2xl p-4">
+              <div class="text-sm text-slate-400">Registration</div>
+              <div class="mt-2 text-2xl font-semibold" id="registrationValue">Pending</div>
+            </div>
+            <div class="glass glow rounded-2xl p-4">
+              <div class="text-sm text-slate-400">Verification</div>
+              <div class="mt-2 text-2xl font-semibold" id="verificationValue">Unknown</div>
+            </div>
+          </div>
         </div>
-        <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-          <h2 class="text-xl font-semibold">2. Acción</h2>
-          <p class="mt-3 text-slate-300">El agente consume contexto, evalúa una señal y decide qué hacer.</p>
-        </div>
-        <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-          <h2 class="text-xl font-semibold">3. Verificación</h2>
-          <p class="mt-3 text-slate-300">La decisión queda firmada para conectar autoría, trazabilidad y control.</p>
+
+        <div class="glass glow rounded-3xl p-6">
+          <div class="flex items-center justify-between">
+            <h2 class="text-2xl font-semibold">Live agent payload</h2>
+            <span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs text-cyan-200">/api/demo</span>
+          </div>
+          <pre id="output" class="mt-6 min-h-[420px] overflow-auto rounded-2xl bg-slate-950/90 p-4 text-sm text-cyan-200"></pre>
         </div>
       </section>
 
-      <section class="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-        <div class="rounded-3xl border border-slate-800 bg-slate-900 p-6">
+      <section class="mt-14 grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+        <div class="glass glow rounded-3xl p-6">
           <div class="flex items-center justify-between">
             <h3 class="text-2xl font-semibold">Flujo del agente</h3>
-            <span class="text-sm text-slate-400">Demo interactiva</span>
+            <span class="text-sm text-slate-400">Conectado a datos reales</span>
           </div>
-          <ol id="steps" class="mt-6 space-y-4"></ol>
+          <div id="steps" class="mt-6 space-y-4"></div>
         </div>
 
-        <div class="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-          <h3 class="text-2xl font-semibold">Salida simulada</h3>
-          <pre id="output" class="mt-6 min-h-[320px] overflow-auto rounded-2xl bg-slate-950 p-4 text-sm text-cyan-200"></pre>
-        </div>
-      </section>
-
-      <section class="mt-12 rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 to-slate-950 p-8">
-        <h3 class="text-2xl font-semibold">¿Por qué esto puede ser producto?</h3>
-        <div class="mt-6 grid gap-4 md:grid-cols-2">
-          <div class="rounded-2xl border border-slate-800 p-5">
-            <h4 class="font-semibold">Registry de agentes</h4>
-            <p class="mt-2 text-slate-300">Directorio de agentes verificables con metadata, estado y políticas.</p>
+        <div class="grid gap-6">
+          <div class="glass glow rounded-3xl p-6">
+            <h3 class="text-2xl font-semibold">Señal activa</h3>
+            <div id="signalCard" class="mt-5 grid gap-3 text-slate-200 md:grid-cols-2"></div>
           </div>
-          <div class="rounded-2xl border border-slate-800 p-5">
-            <h4 class="font-semibold">Marketplaces y reputación</h4>
-            <p class="mt-2 text-slate-300">Descubrir agentes por rol, reputación, chain soportada y permisos.</p>
+
+          <div class="glass glow rounded-3xl p-6">
+            <h3 class="text-2xl font-semibold">Por qué esto sí puede ser producto</h3>
+            <div id="angles" class="mt-5 grid gap-3"></div>
           </div>
         </div>
       </section>
-    </div>
+    </main>
 
     <script>
-      const steps = [
-        'Se crea un wallet fresco para el agente.',
-        'Se intenta registrar la identidad en Sepolia.',
-        'Se verifica el estado del agente en el registry.',
-        'El agente consume una señal DeFi simulada.',
-        'La decisión se firma con una prueba criptográfica.',
-        'Se verifica que la firma corresponde al agente.'
-      ];
-
-      const sampleOutput = [
-        'Address: 0x8f3c...demo',
-        'Registration mode: simulation',
-        'Signal: USDC vault APY 12.4%',
-        'Decision: rebalance-to-yield-vault',
-        'Signature: 0xabc123...signed',
-        'Verified: true'
-      ];
-
-      const list = document.getElementById('steps');
       const output = document.getElementById('output');
+      const stepsEl = document.getElementById('steps');
+      const signalCard = document.getElementById('signalCard');
+      const anglesEl = document.getElementById('angles');
+      const identityValue = document.getElementById('identityValue');
+      const registrationValue = document.getElementById('registrationValue');
+      const verificationValue = document.getElementById('verificationValue');
       const runDemo = document.getElementById('runDemo');
 
-      steps.forEach((step, index) => {
-        const li = document.createElement('li');
-        li.className = 'rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-slate-200';
-        li.innerHTML = `<span class="mr-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-cyan-400/15 text-cyan-300">${index + 1}</span>${step}`;
-        list.appendChild(li);
-      });
+      function badge(status) {
+        const styles = {
+          completed: 'bg-emerald-400/15 text-emerald-300 border-emerald-400/20',
+          fallback: 'bg-amber-400/15 text-amber-300 border-amber-400/20',
+          error: 'bg-rose-400/15 text-rose-300 border-rose-400/20'
+        };
+        return styles[status] || 'bg-slate-400/15 text-slate-300 border-slate-400/20';
+      }
 
-      runDemo.addEventListener('click', () => {
-        output.textContent = '';
-        sampleOutput.forEach((line, index) => {
-          setTimeout(() => {
-            output.textContent += line + '\n';
-          }, index * 450);
+      function renderSteps(steps) {
+        stepsEl.innerHTML = '';
+        steps.forEach((step, index) => {
+          const card = document.createElement('div');
+          card.className = 'rounded-2xl border border-slate-800 bg-slate-950/50 p-4';
+          card.innerHTML = `
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <div class="flex items-center gap-3">
+                  <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-cyan-400/15 text-cyan-300">${index + 1}</span>
+                  <h4 class="text-lg font-semibold">${step.title}</h4>
+                </div>
+                <p class="mt-3 text-slate-300">${step.detail}</p>
+              </div>
+              <span class="rounded-full border px-3 py-1 text-xs ${badge(step.status)}">${step.status}</span>
+            </div>
+          `;
+          stepsEl.appendChild(card);
         });
-      });
+      }
+
+      function renderSignal(signal) {
+        signalCard.innerHTML = '';
+        const fields = [
+          ['Protocol', signal.protocol],
+          ['Asset', signal.asset],
+          ['Observed APY', signal.observedApy],
+          ['Risk', signal.risk],
+          ['Action', signal.recommendedAction],
+          ['Reason', signal.reason]
+        ];
+        fields.forEach(([label, value]) => {
+          const item = document.createElement('div');
+          item.className = 'rounded-2xl border border-slate-800 bg-slate-950/60 p-4';
+          item.innerHTML = `<div class="text-sm text-slate-400">${label}</div><div class="mt-2 text-base font-medium">${value}</div>`;
+          signalCard.appendChild(item);
+        });
+      }
+
+      function renderAngles(angles) {
+        anglesEl.innerHTML = '';
+        angles.forEach((angle) => {
+          const item = document.createElement('div');
+          item.className = 'rounded-2xl border border-slate-800 bg-slate-950/50 p-4 text-slate-200';
+          item.textContent = angle;
+          anglesEl.appendChild(item);
+        });
+      }
+
+      async function loadDemo() {
+        output.textContent = 'Cargando datos reales del agente...';
+        try {
+          const response = await fetch('/api/demo');
+          const data = await response.json();
+
+          output.textContent = JSON.stringify(data, null, 2);
+          identityValue.textContent = data.summary.address.slice(0, 10) + '...';
+          registrationValue.textContent = data.summary.registrationMode;
+          verificationValue.textContent = data.summary.verification.verified ? 'Valid' : 'Invalid';
+
+          renderSteps(data.steps);
+          renderSignal(data.summary.signal);
+          renderAngles(data.summary.productAngles);
+        } catch (error) {
+          output.textContent = 'No se pudieron cargar los datos reales.\n' + error.message;
+        }
+      }
+
+      runDemo.addEventListener('click', loadDemo);
+      loadDemo();
     </script>
   </body>
 </html>

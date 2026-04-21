@@ -176,12 +176,24 @@ npm run start
 
 ## Landing visual
 
-El repo ahora incluye un `index.html` con una landing simple para explicar visualmente:
-- el flujo del agente
-- la propuesta de valor de ERC-8004
-- una simulación del output del agente
+El repo ahora incluye un `index.html` con una landing más robusta que:
+- consume datos reales desde `api/demo`
+- muestra el flujo del agente con estados dinámicos
+- expone la señal activa, la firma y el modo de registro
+- conecta mejor la tesis de ERC-8004 con una experiencia visual más seria
 
 Esto ayuda a mostrar la idea más rápido a builders, judges o posibles colaboradores.
+
+## API de demo
+
+Se agregó un endpoint `api/demo` que genera un payload JSON con:
+- identidad del agente
+- modo de registro
+- señal observada
+- verificación de firma
+- ángulos de producto
+
+La landing usa ese endpoint para renderizar datos en vivo.
 
 ## Qué mejoraría después
 
