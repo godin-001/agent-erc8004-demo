@@ -26,7 +26,7 @@
             <a href="https://github.com/godin-001/agent-erc8004-demo" target="_blank" class="rounded-2xl border border-slate-700 px-6 py-3 font-semibold text-slate-100">Ver GitHub</a>
           </div>
 
-          <div class="mt-10 grid gap-4 sm:grid-cols-3">
+          <div class="mt-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <div class="glass glow rounded-2xl p-4">
               <div class="text-sm text-slate-400">Identity</div>
               <div class="mt-2 text-2xl font-semibold" id="identityValue">Waiting...</div>
@@ -38,6 +38,10 @@
             <div class="glass glow rounded-2xl p-4">
               <div class="text-sm text-slate-400">Verification</div>
               <div class="mt-2 text-2xl font-semibold" id="verificationValue">Unknown</div>
+            </div>
+            <div class="glass glow rounded-2xl p-4">
+              <div class="text-sm text-slate-400">Contract</div>
+              <div class="mt-2 text-lg font-semibold" id="contractValue">Not connected</div>
             </div>
           </div>
         </div>
@@ -67,6 +71,11 @@
           </div>
 
           <div class="glass glow rounded-3xl p-6">
+            <h3 class="text-2xl font-semibold">Contrato y explorer</h3>
+            <div id="contractCard" class="mt-5 grid gap-3 text-slate-200"></div>
+          </div>
+
+          <div class="glass glow rounded-3xl p-6">
             <h3 class="text-2xl font-semibold">Por qué esto sí puede ser producto</h3>
             <div id="angles" class="mt-5 grid gap-3"></div>
           </div>
@@ -83,6 +92,8 @@
       const registrationValue = document.getElementById('registrationValue');
       const verificationValue = document.getElementById('verificationValue');
       const runDemo = document.getElementById('runDemo');
+      const contractValue = document.getElementById('contractValue');
+      const contractCard = document.getElementById('contractCard');
 
       function badge(status) {
         const styles = {
@@ -142,6 +153,37 @@
         });
       }
 
+      function renderContract(summary) {
+        contractCard.innerHTML = '';
+
+        if (!summary.contract) {
+          contractValue.textContent = 'Not connected';
+          const item = document.createElement('div');
+          item.className = 'rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-amber-200';
+          item.textContent = 'Falta conectar las variables de Sepolia para mostrar contract address y explorer links reales.';
+          contractCard.appendChild(item);
+          return;
+        }
+
+        contractValue.innerHTML = `<a class="text-cyan-300 hover:text-cyan-200" href="${summary.contract.explorerUrl}" target="_blank">${summary.contract.shortAddress}</a>`;
+
+        const fields = [
+          ['Contract address', summary.contract.address],
+          ['Explorer', `<a class="text-cyan-300 hover:text-cyan-200" target="_blank" href="${summary.contract.explorerUrl}">Ver en Sepolia Etherscan</a>`],
+          ['Agent wallet', summary.address],
+          ['Agent explorer', summary.agentRecord?.explorerUrl ? `<a class="text-cyan-300 hover:text-cyan-200" target="_blank" href="${summary.agentRecord.explorerUrl}">Ver wallet</a>` : 'N/A'],
+          ['Network', `${summary.contract.chainName} (${summary.contract.chainId})`],
+          ['Registry active', summary.agentRecord?.active ? 'Yes' : 'No']
+        ];
+
+        fields.forEach(([label, value]) => {
+          const item = document.createElement('div');
+          item.className = 'rounded-2xl border border-slate-800 bg-slate-950/60 p-4';
+          item.innerHTML = `<div class="text-sm text-slate-400">${label}</div><div class="mt-2 break-all text-base font-medium">${value}</div>`;
+          contractCard.appendChild(item);
+        });
+      }
+
       async function loadDemo() {
         output.textContent = 'Cargando datos reales del agente...';
         try {
@@ -149,12 +191,13 @@
           const data = await response.json();
 
           output.textContent = JSON.stringify(data, null, 2);
-          identityValue.textContent = data.summary.address.slice(0, 10) + '...';
+          identityValue.textContent = data.summary.shortAddress || (data.summary.address.slice(0, 10) + '...');
           registrationValue.textContent = data.summary.registrationMode;
-          verificationValue.textContent = data.summary.verification.verified ? 'Valid' : 'Invalid';
+          verificationValue.textContent = data.summary.verification.verified ? 'Valid' : 'Pending';
 
           renderSteps(data.steps);
           renderSignal(data.summary.signal);
+          renderContract(data.summary);
           renderAngles(data.summary.productAngles);
         } catch (error) {
           output.textContent = 'No se pudieron cargar los datos reales.\n' + error.message;

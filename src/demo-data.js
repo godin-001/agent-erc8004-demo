@@ -1,9 +1,21 @@
 const crypto = require('crypto');
+const { JsonRpcProvider, Wallet, Contract, verifyMessage } = require('ethers');
+const { abi } = require('./abi');
 
-function createAgentWallet() {
-  const privateKey = crypto.randomBytes(32).toString('hex');
-  const address = '0x' + crypto.createHash('sha256').update(privateKey).digest('hex').slice(0, 40);
-  return { privateKey, address };
+const SEPOLIA_CHAIN_ID = 11155111;
+const SEPOLIA_EXPLORER = 'https://sepolia.etherscan.io';
+
+function getConfig() {
+  return {
+    rpcUrl: process.env.SEPOLIA_RPC_URL || '',
+    privateKey: process.env.PRIVATE_KEY || '',
+    registryAddress: process.env.REGISTRY_ADDRESS || ''
+  };
+}
+
+function shorten(value, start = 6, end = 4) {
+  if (!value || value.length <= start + end) return value;
+  return `${value.slice(0, start)}...${value.slice(-end)}`;
 }
 
 function simulateDeFiSignal() {
@@ -22,72 +34,128 @@ function simulateDeFiSignal() {
   };
 }
 
-function signDecision(privateKey, payload) {
-  const body = JSON.stringify(payload);
-  const signature = crypto.createHmac('sha256', privateKey).update(body).digest('hex');
-  return { body, signature };
-}
+async function loadOnchainContext() {
+  const config = getConfig();
 
-function verifyDecision(privateKey, signed) {
-  const expected = crypto.createHmac('sha256', privateKey).update(signed.body).digest('hex');
-  return expected === signed.signature;
-}
-
-async function registerOnChain(agent, metadataURI) {
-  const hasGas = process.env.SIMULATE_GAS !== 'false';
-
-  if (!hasGas) {
+  if (!config.rpcUrl || !config.privateKey || !config.registryAddress) {
     return {
+      available: false,
       mode: 'simulation',
-      success: false,
-      reason: 'Agent wallet sin ETH para gas, se omite write on-chain.'
+      reason: 'Faltan SEPOLIA_RPC_URL, PRIVATE_KEY o REGISTRY_ADDRESS.'
     };
   }
 
+  const provider = new JsonRpcProvider(config.rpcUrl, SEPOLIA_CHAIN_ID);
+  const wallet = new Wallet(config.privateKey, provider);
+  const registry = new Contract(config.registryAddress, abi, provider);
+
+  const [network, balance, agentRecord, paused] = await Promise.all([
+    provider.getNetwork(),
+    provider.getBalance(wallet.address),
+    registry.getAgent(wallet.address),
+    registry.paused().catch(() => false)
+  ]);
+
   return {
-    mode: 'onchain',
-    success: true,
-    txHash: '0x' + crypto.randomBytes(32).toString('hex'),
-    metadataURI,
-    registeredAt: new Date().toISOString()
+    available: true,
+    mode: agentRecord && agentRecord.active ? 'onchain' : 'wallet-ready',
+    provider,
+    wallet,
+    network: {
+      chainId: Number(network.chainId),
+      name: network.name
+    },
+    registry: {
+      address: config.registryAddress,
+      explorerUrl: `${SEPOLIA_EXPLORER}/address/${config.registryAddress}`,
+      paused: Boolean(paused)
+    },
+    agentRecord: {
+      agent: agentRecord.agent,
+      metadataURI: agentRecord.metadataURI,
+      registeredAt: agentRecord.registeredAt ? Number(agentRecord.registeredAt) : 0,
+      active: Boolean(agentRecord.active)
+    },
+    balanceWei: balance.toString(),
+    balanceEth: Number(balance) / 1e18
+  };
+}
+
+async function signDecision(wallet, payload) {
+  const body = JSON.stringify(payload);
+  const signature = await wallet.signMessage(body);
+  return { body, signature };
+}
+
+async function verifyDecision(address, signed) {
+  const recovered = verifyMessage(signed.body, signed.signature);
+  return {
+    verified: recovered.toLowerCase() === address.toLowerCase(),
+    recoveredAddress: recovered
   };
 }
 
 async function runDemo() {
-  const agent = createAgentWallet();
-  const metadataURI = 'ipfs://demo-agent-metadata';
-  const registration = await registerOnChain(agent, metadataURI);
   const signal = simulateDeFiSignal();
+  const onchain = await loadOnchainContext();
+
+  const agentAddress = onchain.available ? onchain.wallet.address : '0x0000000000000000000000000000000000000000';
+  const metadataURI = onchain.available && onchain.agentRecord.metadataURI
+    ? onchain.agentRecord.metadataURI
+    : 'ipfs://demo-agent-metadata';
 
   const decisionPayload = {
-    agent: agent.address,
+    agent: agentAddress,
     timestamp: new Date().toISOString(),
     signal,
     executionPolicy: 'recommend-only',
-    standard: 'ERC-8004'
+    standard: 'ERC-8004',
+    registryAddress: onchain.available ? onchain.registry.address : null
   };
 
-  const signed = signDecision(agent.privateKey, decisionPayload);
-  const verified = verifyDecision(agent.privateKey, signed);
+  let verification = {
+    verified: false,
+    signaturePreview: null,
+    recoveredAddress: null
+  };
+
+  if (onchain.available) {
+    const signed = await signDecision(onchain.wallet, decisionPayload);
+    const verified = await verifyDecision(onchain.wallet.address, signed);
+    verification = {
+      verified: verified.verified,
+      signaturePreview: shorten(signed.signature, 12, 10),
+      recoveredAddress: verified.recoveredAddress
+    };
+  }
+
+  const registrationMode = onchain.available ? onchain.mode : 'simulation';
+  const isRegistered = onchain.available && onchain.agentRecord.active;
 
   return {
     steps: [
       {
         title: 'Identidad del agente',
-        detail: 'Se crea un wallet fresco que representa al agente.',
-        status: 'completed'
+        detail: onchain.available
+          ? `Se usa un wallet real en Sepolia: ${shorten(onchain.wallet.address)}.`
+          : 'Falta la configuración de Sepolia, así que la demo cae en simulation mode.',
+        status: onchain.available ? 'completed' : 'fallback'
       },
       {
         title: 'Registro on-chain',
-        detail: registration.mode === 'onchain'
-          ? 'La identidad se registra en Sepolia con metadataURI.'
-          : 'Se activa simulation mode por falta de gas.',
-        status: registration.mode === 'onchain' ? 'completed' : 'fallback'
+        detail: isRegistered
+          ? 'El agente ya aparece registrado y activo en el AgentRegistry.'
+          : onchain.available
+            ? 'El wallet está listo, pero todavía no aparece activo en el registry.'
+            : onchain.reason,
+        status: isRegistered ? 'completed' : 'fallback'
       },
       {
         title: 'Verificación de estado',
-        detail: 'Se verifica si el agente quedó activo y trazable.',
-        status: 'completed'
+        detail: onchain.available
+          ? `Contrato ${shorten(onchain.registry.address)} en chainId ${onchain.network.chainId}.`
+          : 'No se pudo verificar estado real porque faltan credenciales/config.',
+        status: onchain.available ? 'completed' : 'fallback'
       },
       {
         title: 'Decisión del agente',
@@ -96,25 +164,41 @@ async function runDemo() {
       },
       {
         title: 'Firma criptográfica',
-        detail: 'La decisión se firma con una prueba derivada del wallet del agente.',
-        status: 'completed'
+        detail: onchain.available
+          ? 'La decisión se firma con el wallet real del agente.'
+          : 'La firma real queda pendiente hasta conectar el wallet del agente.',
+        status: onchain.available ? 'completed' : 'fallback'
       },
       {
         title: 'Verificación final',
-        detail: verified ? 'La firma coincide con la identidad del agente.' : 'La firma no coincide.',
-        status: verified ? 'completed' : 'error'
+        detail: verification.verified
+          ? 'La firma coincide con la identidad on-chain del agente.'
+          : 'La verificación final depende de tener wallet y registry configurados.',
+        status: verification.verified ? 'completed' : 'fallback'
       }
     ],
     summary: {
-      address: agent.address,
-      registrationMode: registration.mode,
-      txHash: registration.txHash || null,
+      address: agentAddress,
+      shortAddress: shorten(agentAddress),
+      registrationMode,
+      txHash: null,
       metadataURI,
       signal,
-      verification: {
-        verified,
-        signaturePreview: signed.signature.slice(0, 24) + '...'
-      },
+      verification,
+      contract: onchain.available ? {
+        address: onchain.registry.address,
+        shortAddress: shorten(onchain.registry.address),
+        explorerUrl: onchain.registry.explorerUrl,
+        chainId: onchain.network.chainId,
+        chainName: onchain.network.name,
+        paused: onchain.registry.paused
+      } : null,
+      agentRecord: onchain.available ? {
+        active: onchain.agentRecord.active,
+        registeredAt: onchain.agentRecord.registeredAt,
+        explorerUrl: `${SEPOLIA_EXPLORER}/address/${agentAddress}`
+      } : null,
+      balanceEth: onchain.available ? onchain.balanceEth.toFixed(6) : null,
       productAngles: [
         'Registries de agentes verificables',
         'Marketplaces con reputación on-chain',

@@ -191,9 +191,29 @@ Se agregó un endpoint `api/demo` que genera un payload JSON con:
 - modo de registro
 - señal observada
 - verificación de firma
+- contract address y explorer links
 - ángulos de producto
 
 La landing usa ese endpoint para renderizar datos en vivo.
+
+## Conectar a Sepolia real
+
+Para mostrar datos reales de Sepolia en la landing, configura:
+
+```bash
+SEPOLIA_RPC_URL=...
+PRIVATE_KEY=...
+REGISTRY_ADDRESS=0x...
+```
+
+Con eso, la demo:
+- usa el wallet real del agente
+- consulta el `AgentRegistry` desplegado
+- muestra el contract address
+- expone links directos a Sepolia Etherscan
+- firma la decisión con la wallet real
+
+Si falta alguna variable, la UI cae en simulation mode sin romper el demo.
 
 ## Qué mejoraría después
 
