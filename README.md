@@ -172,6 +172,16 @@ npm run start
 - `npm run start`
 - `npm run deploy`
 - `npm run verify`
+- `npm run dev` para abrir una landing local en `http://localhost:3000`
+
+## Landing visual
+
+El repo ahora incluye un `index.html` con una landing simple para explicar visualmente:
+- el flujo del agente
+- la propuesta de valor de ERC-8004
+- una simulación del output del agente
+
+Esto ayuda a mostrar la idea más rápido a builders, judges o posibles colaboradores.
 
 ## Qué mejoraría después
 
